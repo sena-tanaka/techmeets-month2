@@ -37,3 +37,36 @@ docker compose exec app php artisan migrate
 - phpMyAdmin: http://localhost:8080 （ユーザー名: root / パスワード: secret）
 
 ---
+
+## ブログシステムについて
+
+### 機能
+
+- 投稿一覧表示(ページネーション付き)
+- 投稿詳細表示
+- 投稿作成(タイトル・内容・カテゴリー)
+- 投稿編集
+- 投稿削除
+- バリデーション(タイトル・内容・カテゴリーの入力チェック)
+- Bladeレイアウト継承(共通レイアウトを各ページで使い回し)
+
+### テーブル定義
+
+#### posts テーブル
+
+| カラム名 | 型 | 説明 |
+|---|---|---|
+| id | bigint | 主キー(自動採番) |
+| title | varchar | タイトル |
+| content | text | 本文 |
+| category | varchar | カテゴリー |
+| created_at | timestamp | 作成日時 |
+| updated_at | timestamp | 更新日時 |
+
+### スクリーンショット
+
+#### 投稿一覧
+
+#### 新規投稿フォーム
+
+#### 投稿詳細

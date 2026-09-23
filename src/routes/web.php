@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -24,5 +25,8 @@ Route::middleware('auth')->group(function () {
 
 // 投稿の一覧・詳細は誰でも見られる
 Route::resource('posts', PostController::class)->only(['index', 'show']);
+
+// 商品管理（week7）
+Route::resource('products', ProductController::class);
 
 require __DIR__.'/auth.php';

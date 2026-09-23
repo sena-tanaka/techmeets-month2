@@ -74,3 +74,37 @@ DB_PASSWORD=secret
 3. 「ブログ」メニューから記事の投稿・編集・削除ができます
 
 phpMyAdmin は http://localhost:8080 から利用できます。
+
+---
+
+## 商品管理システムについて
+
+### 機能
+
+- 商品一覧表示(ページネーション付き)
+- 商品詳細表示
+- 商品登録(商品名・価格・説明・在庫数・カテゴリー)
+- 商品編集
+- 商品削除
+- バリデーション(数値項目のチェックなど)
+
+### テーブル定義
+
+#### products テーブル
+
+| カラム名 | 型 | 説明 |
+|---|---|---|
+| id | bigint | 主キー(自動採番) |
+| name | varchar | 商品名 |
+| price | decimal(10,2) | 価格 |
+| description | text | 説明 |
+| stock | integer | 在庫数 |
+| category | varchar | カテゴリー |
+| created_at | timestamp | 作成日時 |
+| updated_at | timestamp | 更新日時 |
+
+### スクリーンショット
+
+#### 商品一覧
+
+#### 商品登録フォーム

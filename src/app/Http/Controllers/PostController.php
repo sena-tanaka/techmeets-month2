@@ -4,66 +4,75 @@ namespace App\Http\Controllers;
 
 use App\Models\Post;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class PostController extends Controller
 {
-    // 1. 投稿一覧を表示
+    // 一覧（誰でも見られる）
     public function index()
     {
-        $posts = Post::latest()->paginate(5);
-        return view('posts.index', compact('posts'));
+        $posts = Post::with('user')->latest()->get();
+        return view('member.index', compact('posts'));
     }
 
-    // 投稿作成フォームを表示
+    // 詳細（誰でも見られる）
+    public function show(Post $post)
+    {
+        return view('member.show', compact('post'));
+    }
+
+    // 作成画面（ログインユーザーのみ）
     public function create()
     {
-        return view('posts.create');
+        return view('member.create');
     }
 
-    // 2. 投稿を保存する
+    // 保存（ログインユーザーのみ）
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'title' => 'required|max:255',
-            'content' => 'required',
-            'category' => 'required|max:50',
+            'title'    => ['required', 'string', 'max:255'],
+            'content'  => ['required', 'string', 'max:10000'],
+            'category' => ['nullable', 'string', 'max:50'],
         ]);
 
-        Post::create($validated);
+        // ログインユーザーの user_id を自動でセット
+        $request->user()->posts()->create($validated);
 
         return redirect()->route('posts.index')->with('success', '投稿しました');
     }
 
-    // 3. 投稿詳細を表示
-    public function show(Post $post)
-    {
-        return view('posts.show', compact('post'));
-    }
-
-    // 編集フォームを表示
+    // 編集画面（自分の投稿のみ）
     public function edit(Post $post)
     {
-        return view('posts.edit', compact('post'));
+        Gate::authorize('update', $post);
+
+        return view('member.edit', compact('post'));
     }
 
-    // 4. 投稿の更新を保存する
+    // 更新（自分の投稿のみ）
     public function update(Request $request, Post $post)
     {
+        Gate::authorize('update', $post);
+
         $validated = $request->validate([
-            'title' => 'required|max:255',
-            'content' => 'required',
-            'category' => 'required|max:50',
+            'title'    => ['required', 'string', 'max:255'],
+            'content'  => ['required', 'string', 'max:10000'],
+            'category' => ['nullable', 'string', 'max:50'],
         ]);
 
         $post->update($validated);
 
-        return redirect()->route('posts.index')->with('success', '更新しました');
+        return redirect()->route('posts.show', $post)->with('success', '更新しました');
     }
 
-    // 5. 投稿を削除する
+    // 削除（自分の投稿のみ）
     public function destroy(Post $post)
     {
+        Gate::authorize('delete', $post);
+
         $post->delete();
+
         return redirect()->route('posts.index')->with('success', '削除しました');
     }
 }

@@ -21,7 +21,7 @@ services:
       - ./src:/var/www/html
     environment:
       - DB_HOST=db
-      - DB_DATABASE=laravel
+      - DB_DATABASE=laravel_week7
       - DB_USERNAME=root
       - DB_PASSWORD=secret
     depends_on:
@@ -38,7 +38,7 @@ services:
       MYSQL_DATABASE: laravel
       MYSQL_ROOT_PASSWORD: secret
     volumes:
-      - db-data:/var/lib/mysql   # MySQLのデータを「db-data」というボリュームに永続化
+      - db-data:/var/lib/mysql
     networks:
       - app-network
 
@@ -56,11 +56,11 @@ services:
     networks:
       - app-network
 
-# 永続化ボリューム（コンテナを削除してもDBのデータを残す）
+# 永続化ボリューム
 volumes:
   db-data:
 
-# 仮想ネットワーク（同じネットワーク内のコンテナはサービス名で通信できる）
+# 仮想ネットワーク
 networks:
   app-network:
     driver: bridge

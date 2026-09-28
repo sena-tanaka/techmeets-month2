@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\Post;
 use App\Models\User;
 use App\Repositories\PostRepository;
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class PostService
 {
@@ -14,11 +14,11 @@ class PostService
     ) {}
 
     /**
-     * 投稿一覧を取得
+     * 投稿一覧を取得（ページネーション付き）
      */
-    public function getPosts(): Collection
+    public function getPosts(): LengthAwarePaginator
     {
-        return $this->postRepository->getAllLatest();
+        return $this->postRepository->paginateLatest();
     }
 
     /**

@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\PostRequest;
 use App\Models\Post;
 use App\Services\PostService;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
 class PostController extends Controller
@@ -33,15 +33,9 @@ class PostController extends Controller
     }
 
     // 保存（ログインユーザーのみ）
-    public function store(Request $request)
+    public function store(PostRequest $request)
     {
-        $validated = $request->validate([
-            'title'    => ['required', 'string', 'max:255'],
-            'content'  => ['required', 'string', 'max:10000'],
-            'category' => ['nullable', 'string', 'max:50'],
-        ]);
-
-        $this->postService->createPost($request->user(), $validated);
+        $this->postService->createPost($request->user(), $request->validated());
 
         return redirect()->route('posts.index')->with('success', '投稿しました');
     }
@@ -55,17 +49,11 @@ class PostController extends Controller
     }
 
     // 更新（自分の投稿のみ）
-    public function update(Request $request, Post $post)
+    public function update(PostRequest $request, Post $post)
     {
         Gate::authorize('update', $post);
 
-        $validated = $request->validate([
-            'title'    => ['required', 'string', 'max:255'],
-            'content'  => ['required', 'string', 'max:10000'],
-            'category' => ['nullable', 'string', 'max:50'],
-        ]);
-
-        $this->postService->updatePost($post, $validated);
+        $this->postService->updatePost($post, $request->validated());
 
         return redirect()->route('posts.show', $post)->with('success', '更新しました');
     }

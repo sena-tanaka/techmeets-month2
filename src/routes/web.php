@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\TaskController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -20,6 +21,10 @@ Route::middleware('auth')->group(function () {
 
     // 投稿の作成・編集・削除はログインユーザーのみ
     Route::resource('posts', PostController::class)->except(['index', 'show']);
+
+    // タスクはすべてログインユーザーのみ（自分のタスクだけ扱える）
+    Route::resource('tasks', TaskController::class);
+    Route::patch('/tasks/{task}/toggle', [TaskController::class, 'toggle'])->name('tasks.toggle');
 });
 
 // 投稿の一覧・詳細は誰でも見られる

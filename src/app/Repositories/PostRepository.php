@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Models\Post;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection; // 【追加】戻り値の型「Collection」を使うため
 
 class PostRepository
 {
@@ -14,6 +15,17 @@ class PostRepository
     public function paginateLatest(int $perPage = 10): LengthAwarePaginator
     {
         return Post::with('user')->latest()->paginate($perPage);
+    }
+
+    /**
+     * 【追加】API用:全投稿を投稿者(user)と一緒に、新しい順で取得（ページネーションなし）
+     */
+    public function getAllWithUser(): Collection
+    {
+        // with('user'):投稿者の情報もまとめて取得する(N+1問題を防ぐ)
+        // latest():created_at が新しい順に並べる
+        // get():ページ分けせず、全件を取得する
+        return Post::with('user')->latest()->get();
     }
 
     /**

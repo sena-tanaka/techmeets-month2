@@ -6,6 +6,7 @@ use App\Models\Post;
 use App\Models\User;
 use App\Repositories\PostRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection; // 【追加】戻り値の型「Collection」を使うため
 
 class PostService
 {
@@ -19,6 +20,15 @@ class PostService
     public function getPosts(): LengthAwarePaginator
     {
         return $this->postRepository->paginateLatest();
+    }
+
+    /**
+     * 【追加】API用:投稿一覧を全件取得（投稿者情報つき）
+     * データの取得そのものはRepositoryに任せる
+     */
+    public function getAllPostsForApi(): Collection
+    {
+        return $this->postRepository->getAllWithUser();
     }
 
     /**

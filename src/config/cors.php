@@ -15,12 +15,14 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+       'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
-    'allowed_methods' => ['GET'],
+    // 一覧取得(GET)に加えて、新規作成(POST)も許可する
+    'allowed_methods' => ['GET', 'POST'],
 
+    // アクセスを許可する相手(オリジン)。Reactの開発サーバーだけを許可する
     'allowed_origins' => ['http://localhost:5173'],
-
+    
     'allowed_origins_patterns' => [],
 
     'allowed_headers' => ['*'],

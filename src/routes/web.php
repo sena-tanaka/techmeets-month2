@@ -6,6 +6,10 @@ use App\Http\Controllers\PostController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TaskController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\StripeWebhookController;
+
+// Stripe からの Webhook 通知（Stripe が送ってくるので、ログイン不要）
+Route::post('/stripe/webhook', [StripeWebhookController::class, 'handle'])->name('stripe.webhook');
 
 Route::get('/', function () {
     return view('welcome');

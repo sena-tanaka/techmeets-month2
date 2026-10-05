@@ -6,7 +6,7 @@ use App\Models\Post;
 use App\Models\User;
 use App\Repositories\PostRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Collection; // 【追加】戻り値の型「Collection」を使うため
+use Illuminate\Database\Eloquent\Collection;
 
 class PostService
 {
@@ -23,8 +23,7 @@ class PostService
     }
 
     /**
-     * 【追加】API用:投稿一覧を全件取得（投稿者情報つき）
-     * データの取得そのものはRepositoryに任せる
+     * API用:投稿一覧を全件取得（投稿者情報つき）
      */
     public function getAllPostsForApi(): Collection
     {
@@ -53,5 +52,13 @@ class PostService
     public function deletePost(Post $post): void
     {
         $this->postRepository->delete($post);
+    }
+
+    /**
+     * いいねを切り替える
+     */
+    public function toggleLike(Post $post, User $user): void
+    {
+        $this->postRepository->toggleLike($post, $user);
     }
 }

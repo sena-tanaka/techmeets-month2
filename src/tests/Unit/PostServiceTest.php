@@ -92,4 +92,30 @@ class PostServiceTest extends TestCase
 
         $this->service->deletePost($post);
     }
+    // ===== 異常系 =====
+    public function test_Repositoryで例外が起きたらServiceはそのまま投げる(): void
+    {
+        $post = Post::factory()->make();
+
+        $this->repository->shouldReceive('delete')
+            ->once()
+            ->andThrow(new \RuntimeException('DBエラー'));
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('DBエラー');
+
+        $this->service->deletePost($post);
+    }
+    // ===== いいね =====
+    public function test_いいね切り替えはRepositoryのtoggleLikeを呼ぶ(): void
+    {
+        $post = Post::factory()->make();
+        $user = User::factory()->make();
+
+        $this->repository->shouldReceive('toggleLike')
+            ->once()
+            ->with($post, $user);
+
+        $this->service->toggleLike($post, $user);
+    }
 }

@@ -5,7 +5,7 @@ namespace App\Repositories;
 use App\Models\Post;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Collection; // 【追加】戻り値の型「Collection」を使うため
+use Illuminate\Database\Eloquent\Collection;
 
 class PostRepository
 {
@@ -18,13 +18,10 @@ class PostRepository
     }
 
     /**
-     * 【追加】API用:全投稿を投稿者(user)と一緒に、新しい順で取得（ページネーションなし）
+     * API用:全投稿を投稿者(user)と一緒に、新しい順で取得（ページネーションなし）
      */
     public function getAllWithUser(): Collection
     {
-        // with('user'):投稿者の情報もまとめて取得する(N+1問題を防ぐ)
-        // latest():created_at が新しい順に並べる
-        // get():ページ分けせず、全件を取得する
         return Post::with('user')->latest()->get();
     }
 
@@ -52,5 +49,13 @@ class PostRepository
     public function delete(Post $post): void
     {
         $post->delete();
+    }
+
+    /**
+     * いいねを切り替える（していなければ追加、していれば削除）
+     */
+    public function toggleLike(Post $post, User $user): void
+    {
+        $post->likes()->toggle($user->id);
     }
 }

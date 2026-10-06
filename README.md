@@ -75,6 +75,20 @@ DB_PASSWORD=secret
 
 phpMyAdmin は http://localhost:8080 から利用できます。
 
+## テーブル定義
+
+### posts テーブル
+
+| カラム名 | 型 | 説明 |
+|---|---|---|
+| id | bigint | 主キー(自動採番) |
+| user_id | bigint | 投稿者のユーザーID(usersテーブルの外部キー) |
+| title | varchar | タイトル |
+| content | text | 本文 |
+| category | varchar | カテゴリー |
+| created_at | timestamp | 作成日時 |
+| updated_at | timestamp | 更新日時 |
+
 ---
 
 ## 商品管理システムについて
@@ -108,3 +122,92 @@ phpMyAdmin は http://localhost:8080 から利用できます。
 #### 商品一覧
 
 #### 商品登録フォーム
+
+---
+
+## Week 9 基本課題: Repository/Service層の実装
+
+ブログアプリを Repository/Service パターンでリファクタリングしました。
+
+| クラス | 役割 |
+| --- | --- |
+| `PostController` | リクエストを受け取り、レスポンスを返す |
+| `PostRequest` | バリデーション（store/updateで共通化） |
+| `PostService` | ビジネスロジック |
+| `PostRepository` | DB操作（Eloquentの処理はここだけに書く） |
+| `PostPolicy` | 認可（自分の投稿だけ編集・削除できる） |
+
+---
+
+## Week 9 練習課題2: Fat Controllerのリファクタリング
+
+Week 8で作成した会員制ブログの `PostController` を、Repository/Serviceパターンと FormRequest を使ってリファクタリングしました。
+
+### Before（Week 8）
+
+コントローラーが「バリデーション」「DB操作」「認可」「画面の返却」をすべて担当していました。
+
+```php
+public function store(Request $request)
+{
+    // バリデーション（updateにも同じルールを重複して記述）
+    $validated = $request->validate([
+        'title'    => ['required', 'string', 'max:255'],
+        'content'  => ['required', 'string', 'max:10000'],
+        'category' => ['nullable', 'string', 'max:50'],
+    ]);
+
+    // DB操作をコントローラーで直接実行
+    $request->user()->posts()->create($validated);
+
+    return redirect()->route('posts.index')->with('success', '投稿しました');
+}
+```
+
+問題点:
+
+- バリデーションのルールが `store` と `update` に重複している
+- `Post::with('user')->latest()->get()` や `->create()` など、DB操作がコントローラーに直接書かれている
+- DBがないとコントローラーの処理を確認できず、テストしにくい
+
+### After（Week 9）
+
+```php
+public function store(PostRequest $request)
+{
+    $this->postService->createPost($request->user(), $request->validated());
+
+    return redirect()->route('posts.index')->with('success', '投稿しました');
+}
+```
+
+コントローラーは「リクエストを受け取り、Serviceに渡し、画面を返す」だけになりました。
+
+### 変更による効果
+
+- **重複の解消**: バリデーションのルールが `PostRequest` の1か所にまとまった
+- **変更に強い**: 一覧にページネーションを追加したとき、`PostRepository` と `PostService` の変更だけで済み、`PostController` は1行も変更しなかった
+- **テストしやすい**: Serviceは Repository をモックに差し替えればDBなしでテストでき、Policyは User と Post を渡すだけでテストできる
+
+---
+
+## Week 9 練習課題1: タスク管理アプリ
+
+最初から Repository/Service パターンで構築したタスク管理アプリです（http://localhost/tasks）。
+
+- ログインユーザーが自分のタスクだけを管理（一覧・作成・詳細・編集・削除）
+- 完了/未完了の切り替え（判断が入る処理なので `TaskService::toggleCompletion` に配置）
+- 他人のタスクは一覧に表示されず、URLで直接アクセスしても `TaskPolicy` で403
+
+### tasks テーブル
+
+| カラム名 | 型 | 説明 |
+|---|---|---|
+| id | bigint | 主キー(自動採番) |
+| user_id | bigint | 持ち主のユーザーID(usersテーブルの外部キー) |
+| title | varchar | タイトル |
+| description | text | 説明 |
+| due_date | date | 期限 |
+| is_completed | boolean | 完了フラグ |
+| created_at | timestamp | 作成日時 |
+| updated_at | timestamp | 更新日時 |

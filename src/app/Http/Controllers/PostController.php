@@ -2,16 +2,21 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\PostRequest;
 use App\Models\Post;
-use Illuminate\Http\Request;
+use App\Services\PostService;
 use Illuminate\Support\Facades\Gate;
 
 class PostController extends Controller
 {
+    public function __construct(
+        private PostService $postService
+    ) {}
+
     // 一覧（誰でも見られる）
     public function index()
     {
-        $posts = Post::with('user')->latest()->get();
+        $posts = $this->postService->getPosts();
         return view('member.index', compact('posts'));
     }
 
@@ -28,16 +33,9 @@ class PostController extends Controller
     }
 
     // 保存（ログインユーザーのみ）
-    public function store(Request $request)
+    public function store(PostRequest $request)
     {
-        $validated = $request->validate([
-            'title'    => ['required', 'string', 'max:255'],
-            'content'  => ['required', 'string', 'max:10000'],
-            'category' => ['nullable', 'string', 'max:50'],
-        ]);
-
-        // ログインユーザーの user_id を自動でセット
-        $request->user()->posts()->create($validated);
+        $this->postService->createPost($request->user(), $request->validated());
 
         return redirect()->route('posts.index')->with('success', '投稿しました');
     }
@@ -51,17 +49,11 @@ class PostController extends Controller
     }
 
     // 更新（自分の投稿のみ）
-    public function update(Request $request, Post $post)
+    public function update(PostRequest $request, Post $post)
     {
         Gate::authorize('update', $post);
 
-        $validated = $request->validate([
-            'title'    => ['required', 'string', 'max:255'],
-            'content'  => ['required', 'string', 'max:10000'],
-            'category' => ['nullable', 'string', 'max:50'],
-        ]);
-
-        $post->update($validated);
+        $this->postService->updatePost($post, $request->validated());
 
         return redirect()->route('posts.show', $post)->with('success', '更新しました');
     }
@@ -71,7 +63,7 @@ class PostController extends Controller
     {
         Gate::authorize('delete', $post);
 
-        $post->delete();
+        $this->postService->deletePost($post);
 
         return redirect()->route('posts.index')->with('success', '削除しました');
     }

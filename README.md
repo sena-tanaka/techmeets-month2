@@ -386,3 +386,37 @@ public function store(PostRequest $request)
 - **変更に強い**: 一覧にページネーションを追加したとき、`PostRepository` と `PostService` の変更だけで済み、`PostController` は1行も変更しなかった
 - **テストしやすい**: Serviceは Repository をモックに差し替えればDBなしでテストでき、Policyは User と Post を渡すだけでテストできる
 
+## Week10:API化とReactフロントエンド
+
+### 構成
+- バックエンド:Laravel(Docker、http://localhost)… `src/`
+- フロントエンド:React + Vite(http://localhost:5173)… `frontend/`
+- API
+  - `GET /api/posts` … 記事一覧(認証不要)
+  - `POST /api/posts` … 記事作成(Sanctumトークンが必要)
+
+### 動かし方
+1. Laravel を起動する
+   `docker-compose up -d`
+2. APIトークンを発行する
+   `docker-compose exec app php artisan tinker` を実行し、
+   `App\Models\User::find(1)->createToken('react-dev')->plainTextToken;`
+   で表示された文字列をコピーする
+3. `frontend/.env.example` をコピーして `frontend/.env.local` を作り、`VITE_API_TOKEN` に2のトークンを書く
+4. フロントエンドを起動する
+   `cd frontend` → `npm install` → `npm run dev`
+5. ブラウザで http://localhost:5173 を開く
+
+※ `VITE_` で始まる環境変数はビルド後のJavaScriptに埋め込まれ、ブラウザから誰でも見られます。
+トークンをここに置くのはローカルでの練習用のみで、本番ではログイン機能と組み合わせた認証にする必要があります。
+
+### コンポーネント設計
+postitemは、postを受け取って、タイトル・投稿・本文を表示する
+
+postlistはpost.mapでpostitemを並べる(一覧を並べる)
+postfromは入力欄のstateを持ち、client.postで送信(投稿を送る人)
+appはpostを持ち、fetchpostsで一覧を取得(データを管理して配る)
+
+### スクリーンショット
+![記事一覧と投稿フォーム](docs/images/week10-list.png)
+![入力エラー表示](docs/images/week10-form-error.png)

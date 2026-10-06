@@ -27,7 +27,7 @@ Week10 で作成した Laravel + Docker のブログアプリ（`week10/post-for
 | リソース | 設定 | 備考 |
 |---|---|---|
 | EC2 | t3.micro / Ubuntu 26.04 LTS / ストレージ 20GiB | 課題指定は t2.micro・Ubuntu 22.04 だが、作成時点のクイックスタートと無料利用枠の標準に合わせた |
-| RDS | MySQL / db.t4g.micro / パブリックアクセスなし | 課題指定は db.t3.micro だが、作成時点の無料利用枠の標準に合わせた |
+| RDS | MySQL / db.t3.micro / パブリックアクセスなし | |
 | S3 | `sena-techmeets-images-2026`（東京）/ パブリックアクセスをすべてブロック | 画像は署名付きURLで表示 |
 | IAM | ユーザー `laravel-s3-uploader`（コンソールログインなし） | 上記バケット専用の最小権限ポリシー |
 
@@ -60,7 +60,7 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 ### 2-2. RDS の作成
 
-1. MySQL / 無料利用枠テンプレート / db.t4g.micro で作成
+1. MySQL / 無料利用枠テンプレート / db.t3.micro で作成
 2. 「EC2 コンピューティングリソースに接続」で上記 EC2 を指定（EC2 からのみ 3306 を許可するセキュリティグループが自動作成される）
 3. パブリックアクセスは「なし」
 4. EC2 から `laravel` データベースを作成
@@ -144,7 +144,7 @@ docker compose restart nginx
 
 方針: **「必要な通信だけを、必要な相手にだけ許可する」**。何も書いていない通信はすべて拒否される（セキュリティグループはホワイトリスト方式）ので、ルールを1つ追加するごとに「なぜ必要か」「誰に許可するか」を決めて設定しました。
 
-### 3-1. EC2 用（`launch-wizard-X`）【要確認：実際の名前】
+### 3-1. EC2 用（`launch-wizard-2`）
 
 | タイプ | ポート | ソース | 理由 |
 |---|---|---|---|
@@ -164,12 +164,12 @@ docker compose restart nginx
 - 外部に公開しているのは nginx だけで、PHP-FPM（9000）や MySQL（3306）はインターネットに公開していない
 - 投稿・画像アップロードなどの操作はアプリ側のログイン認証で保護している
 
-### 3-2. EC2 ⇔ RDS 間（RDS 作成時に自動作成）【要確認：実際の名前】
+### 3-2. EC2 ⇔ RDS 間（RDS 作成時に自動作成）
 
 | セキュリティグループ | 付与先 | タイプ | ポート | 送信先 / 送信元 |
 |---|---|---|---|---|
-| `ec2-rds-X` | EC2 | MySQL/Aurora（アウトバウンド） | 3306 | `rds-ec2-X` |
-| `rds-ec2-X` | RDS | MySQL/Aurora（インバウンド） | 3306 | `ec2-rds-X` |
+| `ec2-rds-1` | EC2 | MySQL/Aurora（アウトバウンド） | 3306 | `rds-ec2-1` |
+| `rds-ec2-1` | RDS | MySQL/Aurora（インバウンド） | 3306 | `ec2-rds-1` |
 
 #### RDS（3306）を「EC2 からのみ」にした理由
 
@@ -181,7 +181,7 @@ docker compose restart nginx
 
 | ポート | 用途 | 開けていない理由 |
 |---|---|---|
-| 443（HTTPS） | 暗号化通信 | 独自ドメインと SSL 証明書がまだないため。本番運用では HTTPS 化（ALB + ACM など）が必須で、今後の課題 |
+| 443（HTTPS） | 暗号化通信 | 独自ドメインと SSL 証明書がまだないため。本番運用では HTTPS 化が必須で、今後の課題 |
 | 3306（MySQL）の外部公開 | DB 接続 | 上記のとおり EC2 からのみで十分 |
 | 8080（phpMyAdmin） | DB 管理画面 | DB を直接操作できる画面は攻撃対象になりやすいため、本番構成（`docker-compose.prod.yml`）から phpMyAdmin 自体を削除した |
 | 9000（PHP-FPM） | nginx → PHP | Docker の内部ネットワークで通信するだけなので、ホストにもインターネットにも公開していない |
@@ -216,173 +216,4 @@ docker compose restart nginx
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
-      "Resource": "arn:aws:s3:::sena-techmeets-images-2026/*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": "s3:ListBucket",
-      "Resource": "arn:aws:s3:::sena-techmeets-images-2026"
-    }
-  ]
-}
-```
-
-- `AmazonS3FullAccess` などの既製ポリシーは、すべてのバケットの削除や設定変更まで許可してしまうため使用しない
-- 許可しているのは「このバケットの中のファイルのアップロード・取得・削除」と「一覧表示」だけ
-
-### 4-3. アクセスキーの取り扱い
-
-- アクセスキーは `src/.env` にのみ記載し、`.env` は `.gitignore` で Git 管理外にしている
-- キーを誤ってチャットなどに貼ってしまった場合は、すぐに無効化・削除して新しいキーを発行する（キーのローテーション）
-- **改善案**: 本番環境では、アクセスキーを使わずに EC2 に **IAM ロール**を割り当てる方が安全。キーをファイルに保存する必要がなく、漏えいのリスクそのものがなくなる
-
----
-
-## 5. 費用管理と片付け
-
-- AWS アカウントは無料プランで作成し、Budgets でゼロ支出予算（請求アラート）を設定
-- 課題提出後は次のリソースを削除する
-  - RDS（最終スナップショットは作成しない）
-  - EC2（「停止」ではなく「終了」）
-  - S3 バケット（中身を空にしてから削除）
-  - IAM ユーザーのアクセスキー
-  - Elastic IP は今回使用していない
-  
-  
-  
-  # laravel-docker-app
-
-## セットアップ手順
-
-### 1. コンテナを起動する
-```bash
-docker compose up -d
-```
-
-### 2. Laravelをインストールする
-```bash
-docker compose exec app bash
-composer create-project laravel/laravel .
-chown -R www-data:www-data storage bootstrap/cache
-chmod -R 775 storage bootstrap/cache
-exit
-```
-
-### 3. .envファイルのデータベース設定
-`.env` 内の以下を編集する:
-```
-DB_CONNECTION=mysql
-DB_HOST=db
-DB_PORT=3306
-DB_DATABASE=laravel
-DB_USERNAME=root
-DB_PASSWORD=secret
-```
-
-### 4. マイグレーションを実行する
-```bash
-docker compose exec app php artisan migrate
-```
-
-### 5. 動作確認
-- Laravelアプリ: http://localhost
-- phpMyAdmin: http://localhost:8080 （ユーザー名: root / パスワード: secret）
-
----
-
-## ブログシステムについて
-
-### 機能
-
-- 投稿一覧表示(ページネーション付き)
-- 投稿詳細表示
-- 投稿作成(タイトル・内容・カテゴリー)
-- 投稿編集
-- 投稿削除
-- バリデーション(タイトル・内容・カテゴリーの入力チェック)
-- Bladeレイアウト継承(共通レイアウトを各ページで使い回し)
-
-### テーブル定義
-
-#### posts テーブル
-
-| カラム名 | 型 | 説明 |
-|---|---|---|
-| id | bigint | 主キー(自動採番) |
-| title | varchar | タイトル |
-| content | text | 本文 |
-| category | varchar | カテゴリー |
-| created_at | timestamp | 作成日時 |
-| updated_at | timestamp | 更新日時 |
-
-### スクリーンショット
-
-#### 投稿一覧
-
-#### 新規投稿フォーム
-
-#### 投稿詳細
-
----
-
-# Week 9 練習課題2: Fat Controllerのリファクタリング
-
-Week 8で作成した会員制ブログの `PostController` を、Repository/Serviceパターンと FormRequest を使ってリファクタリングしました。
-
-## Before（Week 8）
-
-コントローラーが「バリデーション」「DB操作」「認可」「画面の返却」をすべて担当していました。
-
-```php
-public function store(Request $request)
-{
-    // バリデーション（updateにも同じルールを重複して記述）
-    $validated = $request->validate([
-        'title'    => ['required', 'string', 'max:255'],
-        'content'  => ['required', 'string', 'max:10000'],
-        'category' => ['nullable', 'string', 'max:50'],
-    ]);
-
-    // DB操作をコントローラーで直接実行
-    $request->user()->posts()->create($validated);
-
-    return redirect()->route('posts.index')->with('success', '投稿しました');
-}
-```
-
-問題点:
-
-- バリデーションのルールが `store` と `update` に重複している
-- `Post::with('user')->latest()->get()` や `->create()` など、DB操作がコントローラーに直接書かれている
-- DBがないとコントローラーの処理を確認できず、テストしにくい
-
-## After（Week 9）
-
-```php
-public function store(PostRequest $request)
-{
-    $this->postService->createPost($request->user(), $request->validated());
-
-    return redirect()->route('posts.index')->with('success', '投稿しました');
-}
-```
-
-コントローラーは「リクエストを受け取り、Serviceに渡し、画面を返す」だけになりました。
-
-## 責務の分け方
-
-| クラス | 役割 |
-| --- | --- |
-| `PostController` | リクエストを受け取り、レスポンスを返す |
-| `PostRequest` | バリデーション（store/updateで共通化） |
-| `PostService` | ビジネスロジック（ログインユーザーの投稿として作成する、など） |
-| `PostRepository` | DB操作（Eloquentの処理はここだけに書く） |
-| `PostPolicy` | 認可（自分の投稿だけ編集・削除できる） |
-
-## 変更による効果
-
-- **重複の解消**: バリデーションのルールが `PostRequest` の1か所にまとまった
-- **変更に強い**: 一覧にページネーションを追加したとき、`PostRepository` と `PostService` の変更だけで済み、`PostController` は1行も変更しなかった
-- **テストしやすい**: Serviceは Repository をモックに差し替えればDBなしでテストでき、Policyは User と Post を渡すだけでテストできる
-
+      "Action": ["s3:PutObject",

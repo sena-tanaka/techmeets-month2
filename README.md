@@ -217,3 +217,5 @@ docker compose restart nginx
     {
       "Effect": "Allow",
       "Action": ["s3:PutObject",
+
+     

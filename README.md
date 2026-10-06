@@ -158,7 +158,11 @@ public function store(PostRequest $request)
 トークンをここに置くのはローカルでの練習用のみで、本番ではログイン機能と組み合わせた認証にする必要があります。
 
 ### コンポーネント設計
-(ここに自分の言葉で1段落)
+postitemは、postを受け取って、タイトル・投稿・本文を表示する
+
+postlistはpost.mapでpostitemを並べる(一覧を並べる)
+postfromは入力欄のstateを持ち、client.postで送信(投稿を送る人)
+appはpostを持ち、fetchpostsで一覧を取得(データを管理して配る)
 
 ### スクリーンショット
 ![記事一覧と投稿フォーム](docs/images/week10-list.png)

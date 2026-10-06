@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\ImageController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\ProfileController;
@@ -20,16 +21,21 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-       // 投稿の作成・編集・削除はログインユーザーのみ
+    // 投稿の作成・編集・削除はログインユーザーのみ
     Route::resource('posts', PostController::class)->except(['index', 'show']);
 
     // 画像のアップロード・一覧（S3）はログインユーザーのみ
     Route::get('/images', [ImageController::class, 'index'])->name('images.index');
     Route::post('/images', [ImageController::class, 'store'])->name('images.store');
-    
+
     // タスクはすべてログインユーザーのみ（自分のタスクだけ扱える）
     Route::resource('tasks', TaskController::class);
     Route::patch('/tasks/{task}/toggle', [TaskController::class, 'toggle'])->name('tasks.toggle');
+
+    // Stripeテスト決済（商品ページ → 決済 → 完了ページ）
+    Route::get('/shop', [CheckoutController::class, 'index'])->name('checkout.index');
+    Route::post('/checkout', [CheckoutController::class, 'checkout'])->name('checkout');
+    Route::get('/checkout/success', [CheckoutController::class, 'success'])->name('checkout.success');
 });
 
 // 投稿の一覧・詳細は誰でも見られる

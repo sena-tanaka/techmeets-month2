@@ -26,6 +26,14 @@ class PostServiceTest extends TestCase
         $this->service = new PostService($this->repository);
     }
 
+    // DBに一切触れずに投稿を作る
+    // （PostFactoryの user_id => User::factory() は make() でもUserをDBに作ってしまうため、
+    //   user_id を直接指定してUserを作らせない）
+    private function makePost(array $attributes = []): Post
+    {
+        return Post::factory()->make(array_merge(['user_id' => 1], $attributes));
+    }
+
     public function test_一覧取得はRepositoryのpaginateLatestの結果を返す(): void
     {
         $paginator = new LengthAwarePaginator([], 0, 10);
@@ -39,7 +47,7 @@ class PostServiceTest extends TestCase
 
     public function test_API用一覧はRepositoryのgetAllWithUserの結果を返す(): void
     {
-        $posts = new Collection([Post::factory()->make(), Post::factory()->make()]);
+        $posts = new Collection([$this->makePost(), $this->makePost()]);
 
         $this->repository->shouldReceive('getAllWithUser')
             ->once()
@@ -55,7 +63,7 @@ class PostServiceTest extends TestCase
     {
         $user = User::factory()->make();
         $data = ['title' => '新規', 'content' => '本文', 'category' => '日記'];
-        $post = Post::factory()->make($data);
+        $post = $this->makePost($data);
 
         $this->repository->shouldReceive('createForUser')
             ->once()
@@ -69,9 +77,9 @@ class PostServiceTest extends TestCase
 
     public function test_投稿更新は投稿とデータをRepositoryに渡す(): void
     {
-        $post = Post::factory()->make();
+        $post = $this->makePost();
         $data = ['title' => '更新後', 'content' => '更新本文', 'category' => '技術'];
-        $updated = Post::factory()->make($data);
+        $updated = $this->makePost($data);
 
         $this->repository->shouldReceive('update')
             ->once()
@@ -83,7 +91,7 @@ class PostServiceTest extends TestCase
 
     public function test_投稿削除はRepositoryのdeleteを1回呼ぶ(): void
     {
-        $post = Post::factory()->make();
+        $post = $this->makePost();
 
         // 「deleteが、この投稿を引数に、ちょうど1回呼ばれること」を期待する
         $this->repository->shouldReceive('delete')
@@ -92,10 +100,11 @@ class PostServiceTest extends TestCase
 
         $this->service->deletePost($post);
     }
+
     // ===== 異常系 =====
     public function test_Repositoryで例外が起きたらServiceはそのまま投げる(): void
     {
-        $post = Post::factory()->make();
+        $post = $this->makePost();
 
         $this->repository->shouldReceive('delete')
             ->once()
@@ -106,10 +115,11 @@ class PostServiceTest extends TestCase
 
         $this->service->deletePost($post);
     }
+
     // ===== いいね =====
     public function test_いいね切り替えはRepositoryのtoggleLikeを呼ぶ(): void
     {
-        $post = Post::factory()->make();
+        $post = $this->makePost();
         $user = User::factory()->make();
 
         $this->repository->shouldReceive('toggleLike')

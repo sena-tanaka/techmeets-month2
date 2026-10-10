@@ -1,8 +1,8 @@
 <?php
 
+use App\Http\Controllers\Api\PostController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\PostController;
 
 // api.phpに書いたルートは、URLの先頭に自動で /api が付く
 // → 実際のURLは GET /api/posts になる

@@ -5,8 +5,8 @@ namespace Tests\Feature;
 use App\Models\Post;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
 use Laravel\Sanctum\Sanctum;
+use Tests\TestCase;
 
 class ApiPostTest extends TestCase
 {
@@ -69,7 +69,7 @@ class ApiPostTest extends TestCase
         $this->assertDatabaseCount('posts', 0);
     }
 
-        // ===== POST /api/posts（トークンあり） =====
+    // ===== POST /api/posts（トークンあり） =====
     private function apiData(array $overrides = []): array
     {
         return array_merge([

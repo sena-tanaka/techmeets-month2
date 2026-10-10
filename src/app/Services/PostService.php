@@ -12,7 +12,8 @@ class PostService
 {
     public function __construct(
         private PostRepository $postRepository
-    ) {}
+    ) {
+    }
 
     /**
      * 投稿一覧を取得（ページネーション付き）

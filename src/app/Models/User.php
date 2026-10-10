@@ -13,7 +13,9 @@ use Laravel\Sanctum\HasApiTokens; // 【追加】APIトークンを発行・確�
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable; // 【変更】先頭に HasApiTokens を追加
+    use HasApiTokens;
+    use HasFactory;
+    use Notifiable; // 【変更】先頭に HasApiTokens を追加
 
     /**
      * The attributes that are mass assignable.

@@ -19,7 +19,7 @@ class Post extends Model
         return $this->belongsTo(User::class);
     }
 
-        // この投稿に「いいね」したユーザーたち（likesテーブル経由）
+    // この投稿に「いいね」したユーザーたち（likesテーブル経由）
     public function likes(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'likes')->withTimestamps();

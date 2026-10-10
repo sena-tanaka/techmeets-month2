@@ -11,7 +11,8 @@ class PostController extends Controller
 {
     public function __construct(
         private PostService $postService
-    ) {}
+    ) {
+    }
 
     // 一覧（誰でも見られる）
     public function index()

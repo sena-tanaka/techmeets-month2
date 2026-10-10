@@ -10,7 +10,8 @@ class LikeController extends Controller
 {
     public function __construct(
         private PostService $postService
-    ) {}
+    ) {
+    }
 
     // いいね/取り消しの切り替え
     public function toggle(Request $request, Post $post)

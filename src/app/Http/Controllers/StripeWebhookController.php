@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Stripe\Exception\SignatureVerificationException;
+use Stripe\PaymentIntent;
 use Stripe\Webhook;
 
 class StripeWebhookController extends Controller
@@ -30,11 +31,14 @@ class StripeWebhookController extends Controller
         if ($event->type === 'payment_intent.succeeded') {
             $paymentIntent = $event->data->object;
 
-            Log::info('決済完了（payment_intent.succeeded）', [
-                'payment_intent_id' => $paymentIntent->id,
-                'amount' => $paymentIntent->amount,
-                'currency' => $paymentIntent->currency,
-            ]);
+            // 中身が PaymentIntent(決済)のデータであることを確認してから使う
+            if ($paymentIntent instanceof PaymentIntent) {
+                Log::info('決済完了（payment_intent.succeeded）', [
+                    'payment_intent_id' => $paymentIntent->id,
+                    'amount' => $paymentIntent->amount,
+                    'currency' => $paymentIntent->currency,
+                ]);
+            }
         }
 
         // Stripe には「受け取りました」と 200 を返す

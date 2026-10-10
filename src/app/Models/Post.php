@@ -14,6 +14,7 @@ class Post extends Model
     // user_id は入れない（フォームから書き換えられないようにするため）
     protected $fillable = ['title', 'content', 'category'];
 
+    /** @return \Illuminate\Database\Eloquent\Relations\BelongsTo<\App\Models\User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

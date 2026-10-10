@@ -33,6 +33,25 @@ jobs:
         run: vendor/bin/php-cs-fixer fix --dry-run --diff
  
   # ---------------------------------------------
+  # 練習課題2: 静的解析 (PHPStan / Larastan)
+  # ---------------------------------------------
+  phpstan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+ 
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer
+ 
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+ 
+      - name: Run PHPStan
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+ 
+  # ---------------------------------------------
   # 2. Test (PHPUnit) + 練習課題1: カバレッジ + PRへ結果をコメント
   # ---------------------------------------------
   test:
@@ -130,7 +149,7 @@ jobs:
   # 3. mainへのpush時に EC2 へ自動デプロイ
   # ---------------------------------------------
   deploy:
-    needs: [lint, test]
+    needs: [lint, phpstan, test]   # 【練習課題2】PHPStanが通らないとデプロイしない
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
@@ -164,4 +183,3 @@ jobs:
             docker compose exec -T app php artisan config:cache
             docker compose exec -T app php artisan route:cache
             docker compose exec -T app php artisan view:cache
- 

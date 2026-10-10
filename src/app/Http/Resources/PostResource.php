@@ -5,7 +5,11 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-// PostResource:Postモデル1件を「APIで返すJSONの形」に変換するクラス
+/**
+ * PostResource:Postモデル1件を「APIで返すJSONの形」に変換するクラス
+ *
+ * @mixin \App\Models\Post
+ */
 class PostResource extends JsonResource
 {
     // toArray():ここで返した配列が、そのままJSONになる

@@ -12,10 +12,10 @@ use Laravel\Sanctum\HasApiTokens; // 【追加】APIトークンを発行・確�
 
 class User extends Authenticatable
 {
+    use HasApiTokens; // 【追加】APIトークンを発行・確認する機能
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens;
     use HasFactory;
-    use Notifiable; // 【変更】先頭に HasApiTokens を追加
+    use Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -51,17 +51,13 @@ class User extends Authenticatable
         ];
     }
 
-    /**
-     * ユーザーの投稿一覧（1対多）
-     */
+    /** @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\Post, $this> */
     public function posts(): HasMany
     {
         return $this->hasMany(Post::class);
     }
 
-    /**
-     * ユーザーのタスク一覧（1対多）
-     */
+    /** @return \Illuminate\Database\Eloquent\Relations\HasMany<\App\Models\Task, $this> */
     public function tasks(): HasMany
     {
         return $this->hasMany(Task::class);

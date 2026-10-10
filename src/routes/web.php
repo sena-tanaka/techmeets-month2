@@ -4,6 +4,7 @@ use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\ImageController;
 use App\Http\Controllers\LikeController;
 use App\Http\Controllers\PostController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\TaskController;
@@ -48,5 +49,8 @@ Route::middleware('auth')->group(function () {
 
 // 投稿の一覧・詳細は誰でも見られる
 Route::resource('posts', PostController::class)->only(['index', 'show']);
+
+// 商品管理（week7）
+Route::resource('products', ProductController::class);
 
 require __DIR__.'/auth.php';

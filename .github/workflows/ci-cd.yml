@@ -103,7 +103,7 @@ jobs:
   # 3. mainへのpush時に EC2 へ自動デプロイ
   # ---------------------------------------------
   deploy:
-    needs: [lint, test]   # Lint とテストが両方成功したときだけ
+    needs: [lint, test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
@@ -113,13 +113,27 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 20m
           script: |
             set -e
             cd ${{ secrets.APP_DIR }}
+
+            # 最新のmainに切り替える
+            git fetch origin
+            git checkout main
             git pull origin main
-            docker-compose up -d --build
-            docker-compose exec -T app composer install --no-dev --optimize-autoloader
-            docker-compose exec -T app php artisan migrate --force
-            docker-compose exec -T app php artisan config:cache
-            docker-compose exec -T app php artisan route:cache
-            docker-compose exec -T app php artisan view:cache
+
+            # コンテナを再ビルドして起動
+            docker compose up -d --build
+
+            # PHPの依存関係とDBを更新
+            docker compose exec -T app composer install --no-dev --optimize-autoloader
+            docker compose exec -T app php artisan migrate --force
+
+            # CSS・JSをビルド(public/buildはGitに含まれないため)
+            docker run --rm -v $(pwd)/src:/app -w /app node:22 sh -c "npm ci && npm run build"
+
+            # キャッシュを作り直す
+            docker compose exec -T app php artisan config:cache
+            docker compose exec -T app php artisan route:cache
+            docker compose exec -T app php artisan view:cache

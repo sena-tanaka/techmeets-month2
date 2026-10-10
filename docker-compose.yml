@@ -1,9 +1,9 @@
 services:
   # Nginx（Webサーバー）
   nginx:
-    image: nginx:latest
+    image: nginx:alpine
     ports:
-      - "${APP_PORT}:80"
+      - "127.0.0.1:8000:80"   # 外部からは直接触れず、ホストのNginx経由のみにする
     volumes:
       - ./src:/var/www/html
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
@@ -64,4 +64,3 @@ volumes:
 networks:
   app-network:
     driver: bridge
-    

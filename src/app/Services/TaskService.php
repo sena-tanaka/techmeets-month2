@@ -11,7 +11,8 @@ class TaskService
 {
     public function __construct(
         private TaskRepository $taskRepository
-    ) {}
+    ) {
+    }
 
     /**
      * ログインユーザーのタスク一覧を取得

@@ -1,0 +1,139 @@
+# 置き場所: リポジトリ直下の .github/workflows/ci-cd.yml
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Laravel本体は src/ にあるので、run コマンドはすべて src で実行する
+defaults:
+  run:
+    working-directory: src
+
+jobs:
+  # ---------------------------------------------
+  # 1. Lint (PHP CS Fixer)
+  # ---------------------------------------------
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'   # Dockerfile の PHP バージョンに合わせる
+          tools: composer
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Run PHP CS Fixer (チェックのみ・修正はしない)
+        run: vendor/bin/php-cs-fixer fix --dry-run --diff
+
+  # ---------------------------------------------
+  # 2. Test (PHPUnit) + 4. PRへ結果をコメント
+  # ---------------------------------------------
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write   # PRにコメントするために必要
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo_sqlite
+          coverage: none
+          tools: composer
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare .env
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run PHPUnit
+        id: phpunit
+        env:
+          # CIではMySQLを立てずにSQLite(メモリ上)でテストする
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+        run: php artisan test 2>&1 | tee ../test-result.txt; exit ${PIPESTATUS[0]}
+
+      # ---- 項目4（任意）: テスト結果をPRにコメント ----
+      - name: Comment test result on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        env:
+          OUTCOME: ${{ steps.phpunit.outcome }}
+        with:
+          script: |
+            const fs = require('fs');
+            const ok = process.env.OUTCOME === 'success';
+            let log = '';
+            try { log = fs.readFileSync('test-result.txt', 'utf8'); } catch (e) {}
+            // 長すぎるとコメントが読みにくいので末尾だけ載せる
+            const tail = log.split('\n').slice(-30).join('\n');
+            const body = [
+              ok ? '## ✅ テスト成功' : '## ❌ テスト失敗',
+              '',
+              '<details><summary>実行結果（末尾30行）</summary>',
+              '',
+              '```',
+              tail,
+              '```',
+              '</details>',
+              '',
+              `[ログ全体を見る](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+
+  # ---------------------------------------------
+  # 3. mainへのpush時に EC2 へ自動デプロイ
+  # ---------------------------------------------
+  deploy:
+    needs: [lint, test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 20m
+          script: |
+            set -e
+            cd ${{ secrets.APP_DIR }}
+
+            # 最新のmainに切り替える
+            git fetch origin
+            git checkout main
+            git pull origin main
+
+            # コンテナを再ビルドして起動
+            docker compose up -d --build
+
+            # PHPの依存関係とDBを更新
+            docker compose exec -T app composer install --no-dev --optimize-autoloader
+            docker compose exec -T app php artisan migrate --force
+
+            # CSS・JSをビルド(public/buildはGitに含まれないため)
+            docker run --rm -v $(pwd)/src:/app -w /app node:22 sh -c "npm ci && npm run build"
+
+            # キャッシュを作り直す
+            docker compose exec -T app php artisan config:cache
+            docker compose exec -T app php artisan route:cache
+            docker compose exec -T app php artisan view:cache

@@ -1,0 +1,32 @@
+# 本番（AWS EC2 + RDS）用の構成
+# DBはRDSを使うため、db / phpmyadmin は含めない
+# 使い方: docker compose -f docker-compose.prod.yml up -d --build
+services:
+  # Nginx（Webサーバー）
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./src:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - app-network
+
+  # PHP-FPM（アプリケーション）
+  # DBの接続先は src/.env の DB_HOST（RDSのエンドポイント）で指定する
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    volumes:
+      - ./src:/var/www/html
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+    

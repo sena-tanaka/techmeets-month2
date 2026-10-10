@@ -25,3 +25,5 @@ Thumbs.db
 /laravel
 /coverage
 .php-cs-fixer.cache
+coverage-html/
+coverage.txt

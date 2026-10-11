@@ -1,0 +1,40 @@
+# =========================================================
+# ログ集中管理(Loki + Alloy + Grafana)
+# 起動: docker compose -f docker-compose.logging.yml up -d
+# 画面: http://localhost:3001 (初回ログイン admin / admin)
+# =========================================================
+name: logging   # 開発用(laravel-docker-app)とは別のグループとして動かす
+
+services:
+  # ログの保管庫
+  loki:
+    image: grafana/loki:latest
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki-data:/loki
+
+  # ログの回収係:全コンテナのログを集めて Loki に送る
+  alloy:
+    image: grafana/alloy:latest
+    command: run --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+    volumes:
+      - ./logging/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+
+  # ログを見る画面
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./logging/grafana-datasource.yml:/etc/grafana/provisioning/datasources/loki.yml:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - loki
+
+volumes:
+  loki-data:
+  grafana-data:
+  

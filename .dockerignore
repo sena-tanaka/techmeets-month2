@@ -1,0 +1,50 @@
+#=========================================================
+# Dockerにビルド時に送らないファイル
+# (laravel-docker-app のルートに置く)
+# =========================================================
+ 
+# Git・CI・エディタ関連
+.git
+.github
+.gitignore
+.vscode
+.idea
+ 
+# 依存ライブラリ(コンテナ内で入れ直すので不要)
+**/node_modules
+src/vendor
+ 
+# 秘密情報(イメージに入れるのは厳禁)
+.env
+.env.*
+src/.env
+src/.env.*
+!src/.env.example
+ 
+# 実行時に生成されるもの(フォルダ自体は残し、中身だけ除外)
+src/storage/logs/*
+src/storage/framework/cache/*
+src/storage/framework/sessions/*
+src/storage/framework/views/*
+src/bootstrap/cache/*.php
+src/public/build
+src/public/hot
+src/public/storage
+ 
+# テスト関連(本番には不要)
+src/tests
+src/coverage
+src/.phpunit.result.cache
+src/phpunit.xml
+
+# React(week10)のフロントエンド
+frontend
+ 
+# Docker・ドキュメント類
+docker-compose*.yml
+*.md
+ 
+# OSのゴミファイル
+.DS_Store
+Thumbs.db
+ 

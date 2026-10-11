@@ -1,0 +1,42 @@
+// =========================================================
+// Alloy の設定:Dockerの全コンテナのログを集めて Loki に送る
+// 置き場所: logging/config.alloy
+// =========================================================
+
+// ① 動いているコンテナを自動で見つける
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// ② ログに「どのコンテナか」の名札(ラベル)を付ける
+discovery.relabel "containers" {
+  targets = []
+
+  // コンテナ名(例: laravel-docker-app-app-1)
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  // docker-compose のサービス名(例: app, nginx, db)
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+}
+
+// ③ ログを読み取る
+loki.source.docker "containers" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.containers.targets
+  relabel_rules = discovery.relabel.containers.rules
+  forward_to    = [loki.write.local.receiver]
+}
+
+// ④ Loki に送る
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

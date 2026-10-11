@@ -2,7 +2,7 @@ services:
   # Nginx（Webサーバー）
   nginx:
     image: nginx:alpine
-        ports:
+    ports:
       - "127.0.0.1:${NGINX_HOST_PORT:-8000}:80"   # 本番は8000、ステージングは.envで8001を指定
     volumes:
       - ./src:/var/www/html

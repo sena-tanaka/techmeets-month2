@@ -19,6 +19,8 @@ class VerifyEmailController extends Controller
         }
 
         if ($request->user()->markEmailAsVerified()) {
+            // Breeze標準のコード。UserはMustVerifyEmailを実装していないが、動作に問題はないため除外する
+            // @phpstan-ignore argument.type
             event(new Verified($request->user()));
         }
 

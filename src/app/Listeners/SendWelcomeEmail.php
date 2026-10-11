@@ -10,6 +10,12 @@ class SendWelcomeEmail
 {
     public function handle(Registered $event): void
     {
-        Mail::to($event->user->email)->send(new WelcomeMail($event->user));
+        $user = $event->user;
+
+        if (! $user instanceof \App\Models\User) {
+            return;
+        }
+
+        Mail::to($user->email)->send(new WelcomeMail($user));
     }
 }

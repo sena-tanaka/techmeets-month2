@@ -1,17 +1,17 @@
 # 置き場所: リポジトリ直下の .github/workflows/ci-cd.yml
 name: CI/CD
-
+ 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-
+ 
 # Laravel本体は src/ にあるので、run コマンドはすべて src で実行する
 defaults:
   run:
     working-directory: src
-
+ 
 jobs:
   # ---------------------------------------------
   # 1. Lint (PHP CS Fixer)
@@ -20,20 +20,39 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
+ 
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'   # Dockerfile の PHP バージョンに合わせる
           tools: composer
-
+ 
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
-
+ 
       - name: Run PHP CS Fixer (チェックのみ・修正はしない)
         run: vendor/bin/php-cs-fixer fix --dry-run --diff
-
+ 
   # ---------------------------------------------
-  # 2. Test (PHPUnit) + 4. PRへ結果をコメント
+  # 練習課題2: 静的解析 (PHPStan / Larastan)
+  # ---------------------------------------------
+  phpstan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+ 
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer
+ 
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+ 
+      - name: Run PHPStan
+        run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+ 
+  # ---------------------------------------------
+  # 2. Test (PHPUnit) + 練習課題1: カバレッジ + PRへ結果をコメント
   # ---------------------------------------------
   test:
     runs-on: ubuntu-latest
@@ -42,31 +61,55 @@ jobs:
       pull-requests: write   # PRにコメントするために必要
     steps:
       - uses: actions/checkout@v4
-
+ 
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
           extensions: mbstring, pdo_sqlite
-          coverage: none
+          coverage: pcov       # 【練習課題1】カバレッジ計測用の拡張機能を有効にする
           tools: composer
-
+ 
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
-
+ 
       - name: Prepare .env
         run: |
           cp .env.example .env
           php artisan key:generate
-
-      - name: Run PHPUnit
+ 
+      # 【練習課題1】テストと同時にカバレッジを計測し、テキストとHTMLで出力する
+      - name: Run PHPUnit with coverage
         id: phpunit
         env:
           # CIではMySQLを立てずにSQLite(メモリ上)でテストする
           DB_CONNECTION: sqlite
           DB_DATABASE: ':memory:'
-        run: php artisan test 2>&1 | tee ../test-result.txt; exit ${PIPESTATUS[0]}
-
-      # ---- 項目4（任意）: テスト結果をPRにコメント ----
+        run: |
+          php artisan test \
+            --coverage-text=coverage.txt \
+            --coverage-html=coverage-html \
+            2>&1 | tee ../test-result.txt
+          exit ${PIPESTATUS[0]}
+ 
+      # 【練習課題1】カバレッジの表を、Actionsの実行結果ページの「Summary」に表示する
+      - name: Show coverage in job summary
+        if: always()
+        run: |
+          echo '## 📊 カバレッジレポート' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat coverage.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo 'カバレッジが生成されませんでした' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+ 
+      # 【練習課題1】詳しいHTMLレポートを「Artifacts」からダウンロードできるようにする
+      - name: Upload HTML coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: src/coverage-html
+          retention-days: 7
+ 
+      # ---- 項目4（任意）: テスト結果とカバレッジをPRにコメント ----
       - name: Comment test result on PR
         if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
@@ -76,12 +119,15 @@ jobs:
           script: |
             const fs = require('fs');
             const ok = process.env.OUTCOME === 'success';
-            let log = '';
-            try { log = fs.readFileSync('test-result.txt', 'utf8'); } catch (e) {}
+            const read = (p) => { try { return fs.readFileSync(p, 'utf8'); } catch (e) { return ''; } };
             // 長すぎるとコメントが読みにくいので末尾だけ載せる
-            const tail = log.split('\n').slice(-30).join('\n');
+            const tail = read('test-result.txt').split('\n').slice(-30).join('\n');
+            // 【練習課題1】coverage.txt から「Lines: xx.xx%」の行を拾う
+            const lines = read('src/coverage.txt').split('\n').find(l => l.trim().startsWith('Lines:'));
             const body = [
               ok ? '## ✅ テスト成功' : '## ❌ テスト失敗',
+              '',
+              `**📊 カバレッジ** ${lines ? lines.trim() : '(取得できませんでした)'}`,
               '',
               '<details><summary>実行結果（末尾30行）</summary>',
               '',
@@ -90,7 +136,7 @@ jobs:
               '```',
               '</details>',
               '',
-              `[ログ全体を見る](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`
+              `[ログ・カバレッジ詳細を見る](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`
             ].join('\n');
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -98,12 +144,12 @@ jobs:
               issue_number: context.issue.number,
               body
             });
-
+ 
   # ---------------------------------------------
   # 3. mainへのpush時に EC2 へ自動デプロイ
   # ---------------------------------------------
   deploy:
-    needs: [lint, test]
+    needs: [lint, phpstan, test]   # 【練習課題2】PHPStanが通らないとデプロイしない
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
@@ -117,22 +163,22 @@ jobs:
           script: |
             set -e
             cd ${{ secrets.APP_DIR }}
-
+ 
             # 最新のmainに切り替える
             git fetch origin
             git checkout main
             git pull origin main
-
+ 
             # コンテナを再ビルドして起動
             docker compose up -d --build
-
+ 
             # PHPの依存関係とDBを更新
             docker compose exec -T app composer install --no-dev --optimize-autoloader
             docker compose exec -T app php artisan migrate --force
-
+ 
             # CSS・JSをビルド(public/buildはGitに含まれないため)
             docker run --rm -v $(pwd)/src:/app -w /app node:22 sh -c "npm ci && npm run build"
-
+ 
             # キャッシュを作り直す
             docker compose exec -T app php artisan config:cache
             docker compose exec -T app php artisan route:cache

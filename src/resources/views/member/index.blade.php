@@ -20,8 +20,9 @@
                     </h3>
                     <p class="text-sm text-gray-500 mt-1">
                         {{ $post->user->name }}
-                        @if ($post->category) ・ {{ $post->category }} @endif
-                        ・ {{ $post->created_at->format('Y/m/d H:i') }}
+                         @if ($post->category) ・ {{ $post->category }} @endif
+                       ・ {{ $post->created_at->format('Y/m/d H:i') }}
+                       ・ ♥ {{ $post->likes->count() }}
                     </p>
                 </div>
             @empty

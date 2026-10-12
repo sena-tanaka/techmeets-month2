@@ -27,6 +27,14 @@ class PostRepository
     }
 
     /**
+     * API用:投稿一覧を投稿者(user)・いいね(likes)と一緒に、新しい順でページネーション付きで取得
+     */
+    public function paginateForApi(int $perPage = 20): LengthAwarePaginator
+    {
+        return Post::with(['user', 'likes'])->latest()->paginate($perPage);
+    }
+
+    /**
      * ユーザーに紐づけて投稿を作成
      * user_idはリレーションが自動でセットする（$fillableに入れなくてよい）
      */

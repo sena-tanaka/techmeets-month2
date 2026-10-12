@@ -18,7 +18,7 @@ class PostController extends Controller
     public function index()
     {
         // 1. Serviceに記事一覧を取ってきてもらう
-        $posts = $this->postService->getAllPostsForApi();
+        $posts = $this->postService->getPostsForApi();
 
         // 2. 複数件なので collection() を使い、各記事をPostResourceの形に変換して返す
         //    → Laravelが自動でJSONレスポンスにしてくれる

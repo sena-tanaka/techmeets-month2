@@ -32,6 +32,14 @@ class PostService
     }
 
     /**
+     * API用:投稿一覧をページネーション付きで取得(投稿者情報つき)
+     */
+    public function getPostsForApi(): LengthAwarePaginator
+    {
+        return $this->postRepository->paginateForApi();
+    }
+
+    /**
      * ログインユーザーの投稿として作成
      */
     public function createPost(User $user, array $data): Post

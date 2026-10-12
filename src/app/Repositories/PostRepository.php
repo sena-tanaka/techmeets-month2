@@ -11,10 +11,11 @@ class PostRepository
 {
     /**
      * 投稿一覧を新しい順で取得（ページネーション付き）
+     * user(投稿者)と likes(いいね)を eager loading して N+1 を防ぐ
      */
     public function paginateLatest(int $perPage = 10): LengthAwarePaginator
     {
-        return Post::with('user')->latest()->paginate($perPage);
+        return Post::with(['user', 'likes'])->latest()->paginate($perPage);
     }
 
     /**

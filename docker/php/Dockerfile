@@ -5,6 +5,9 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     libpng-dev \
+    libjpeg62-turbo-dev \
+    libwebp-dev \
+    libfreetype6-dev \
     libonig-dev \
     libxml2-dev \
     zip \
@@ -14,7 +17,9 @@ RUN apt-get update && apt-get install -y \
 RUN ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
 
 # PHP拡張機能をインストール
-RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+# GDはJPEG・WebP・FreeTypeに対応させてからインストールする
+RUN docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
+  && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
 # Composerをインストール
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer

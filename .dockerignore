@@ -47,4 +47,3 @@ docker-compose*.yml
 # OSのゴミファイル
 .DS_Store
 Thumbs.db
- 

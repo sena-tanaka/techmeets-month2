@@ -17,16 +17,19 @@ class PostResource extends JsonResource
     {
         // $this は「変換しようとしているPost 1件」を指す
         return [
-            'id'         => $this->id,
-            'title'      => $this->title,
-            'content'    => $this->content,
+            'id'          => $this->id,
+            'title'       => $this->title,
+            'content'     => $this->content,
 
             // whenLoaded('user'):userリレーションを事前に読み込んでいる時だけ、
             // 投稿者名を含める(読み込んでいなければこの項目は出力されない)
-            'author'     => $this->whenLoaded('user', fn () => $this->user->name),
+            'author'      => $this->whenLoaded('user', fn () => $this->user->name),
+
+            // いいね数(記事1件ごとにlikesを取りに行く素直な書き方 → N+1になる)
+            'likes_count' => $this->likes->count(),
 
             // 日付は画面で扱いやすい文字列に整形して返す
-            'created_at' => $this->created_at->format('Y-m-d H:i'),
+            'created_at'  => $this->created_at->format('Y-m-d H:i'),
         ];
     }
 }

@@ -29,4 +29,9 @@ return [
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
     ],
 
+        // 画像配信用CloudFrontのURL
+    'cloudfront' => [
+        'url' => env('CLOUDFRONT_URL'),
+    ],
+
 ];

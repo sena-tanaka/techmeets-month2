@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # techmeets-month2 — Week11 AWSデプロイ
 
 Week10 で作成した Laravel + Docker のブログアプリ（`week10/post-form` ブランチ）を AWS にデプロイし、S3 への画像アップロード機能を追加しました。
@@ -253,7 +252,6 @@ docker compose restart nginx
   
   
   # laravel-docker-app
-=======
 # 会員制ブログ（Laravel Breeze）
 
 Laravel Breeze の認証機能を使った会員制ブログです。
@@ -285,7 +283,6 @@ Laravel Breeze の認証機能を使った会員制ブログです。
 - PHP / Laravel / Laravel Breeze（Blade）
 - MySQL
 - Docker（nginx・PHP-FPM・MySQL・phpMyAdmin）
->>>>>>> 85ee8950376df9f66176f339cd169a3a7c50c71a
 
 ## セットアップ手順
 

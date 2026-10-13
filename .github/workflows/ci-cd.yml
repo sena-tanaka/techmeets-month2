@@ -1,17 +1,17 @@
 # 置き場所: リポジトリ直下の .github/workflows/ci-cd.yml
 name: CI/CD
- 
+
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
- 
+
 # Laravel本体は src/ にあるので、run コマンドはすべて src で実行する
 defaults:
   run:
     working-directory: src
- 
+
 jobs:
   # ---------------------------------------------
   # 1. Lint (PHP CS Fixer)
@@ -20,18 +20,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
- 
+
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'   # Dockerfile の PHP バージョンに合わせる
+          php-version: '8.3'   # Dockerfile.prod の PHP バージョンに合わせる
           tools: composer
- 
+
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
- 
+
       - name: Run PHP CS Fixer (チェックのみ・修正はしない)
         run: vendor/bin/php-cs-fixer fix --dry-run --diff
- 
+
   # ---------------------------------------------
   # 練習課題2: 静的解析 (PHPStan / Larastan)
   # ---------------------------------------------
@@ -39,44 +39,45 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
- 
+
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: '8.3'   # Dockerfile.prod の PHP バージョンに合わせる
           tools: composer
- 
+
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
- 
+
       - name: Run PHPStan
         run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
- 
+
   # ---------------------------------------------
   # 2. Test (PHPUnit) + 練習課題1: カバレッジ + PRへ結果をコメント
   # ---------------------------------------------
   test:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write   # PRにコメントするために必要
-    steps:
+      needs: [lint, phpstan]   # lintとphpstanが成功してからテストを始める
+      runs-on: ubuntu-latest
+      permissions:
+        contents: read
+        pull-requests: write   # PRにコメントするために必要
+      steps:
       - uses: actions/checkout@v4
- 
+
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: '8.3'   # Dockerfile.prod の PHP バージョンに合わせる
           extensions: mbstring, pdo_sqlite
           coverage: pcov       # 【練習課題1】カバレッジ計測用の拡張機能を有効にする
           tools: composer
- 
+
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
- 
+
       - name: Prepare .env
         run: |
           cp .env.example .env
           php artisan key:generate
- 
+
       # 【練習課題1】テストと同時にカバレッジを計測し、テキストとHTMLで出力する
       - name: Run PHPUnit with coverage
         id: phpunit
@@ -90,7 +91,7 @@ jobs:
             --coverage-html=coverage-html \
             2>&1 | tee ../test-result.txt
           exit ${PIPESTATUS[0]}
- 
+
       # 【練習課題1】カバレッジの表を、Actionsの実行結果ページの「Summary」に表示する
       - name: Show coverage in job summary
         if: always()
@@ -99,7 +100,7 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat coverage.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo 'カバレッジが生成されませんでした' >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
- 
+
       # 【練習課題1】詳しいHTMLレポートを「Artifacts」からダウンロードできるようにする
       - name: Upload HTML coverage report
         if: always()
@@ -108,7 +109,7 @@ jobs:
           name: coverage-html
           path: src/coverage-html
           retention-days: 7
- 
+
       # ---- 項目4（任意）: テスト結果とカバレッジをPRにコメント ----
       - name: Comment test result on PR
         if: always() && github.event_name == 'pull_request'
@@ -144,12 +145,67 @@ jobs:
               issue_number: context.issue.number,
               body
             });
- 
+
   # ---------------------------------------------
-  # 3. mainへのpush時に EC2 へ自動デプロイ
+  # 3. Dockerイメージをビルドして Docker Hub に push(week16)
+  #    - Dockerfile.prod から app(PHP-FPM)と web(Nginx)の2つを作る
+  #    - タグはコミットSHA(ロールバック用)と latest(mainのみ)
+  #    - PRのときはSHAタグだけ push(main の latest は上書きしない)
+  # ---------------------------------------------
+  docker:
+    needs: [lint, phpstan, test]   # テストが通ったコードだけイメージにする
+    runs-on: ubuntu-latest
+    env:
+      # PRのときはPRの最新コミット、mainへのpushのときはそのコミットのSHA
+      IMAGE_TAG: ${{ github.event.pull_request.head.sha || github.sha }}
+      # mainへのpushのときだけ latest も付ける
+      IS_MAIN: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # ビルドのキャッシュなど、高機能なビルドを使うための準備
+      - uses: docker/setup-buildx-action@v3
+
+      # Secrets に入れたユーザー名とトークンで Docker Hub にログイン
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # app イメージ(PHP-FPM + Laravel)
+      - name: Build and push app image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.prod
+          target: production
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/laravel-app:${{ env.IMAGE_TAG }}
+            ${{ env.IS_MAIN == 'true' && format('{0}/laravel-app:latest', secrets.DOCKERHUB_USERNAME) || '' }}
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,mode=max,scope=app
+
+      # web イメージ(Nginx + public)
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.prod
+          target: web
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/laravel-web:${{ env.IMAGE_TAG }}
+            ${{ env.IS_MAIN == 'true' && format('{0}/laravel-web:latest', secrets.DOCKERHUB_USERNAME) || '' }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+  # ---------------------------------------------
+  # 4. mainへのpush時に EC2 へ自動デプロイ
   # ---------------------------------------------
   deploy:
-    needs: [lint, phpstan, test]   # 【練習課題2】PHPStanが通らないとデプロイしない
+    needs: [lint, phpstan, test, docker]   # イメージの push が終わってからデプロイ
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
@@ -163,22 +219,22 @@ jobs:
           script: |
             set -e
             cd ${{ secrets.APP_DIR }}
- 
+
             # 最新のmainに切り替える
             git fetch origin
             git checkout main
             git pull origin main
- 
+
             # コンテナを再ビルドして起動
             docker compose up -d --build
- 
+
             # PHPの依存関係とDBを更新
             docker compose exec -T app composer install --no-dev --optimize-autoloader
             docker compose exec -T app php artisan migrate --force
- 
+
             # CSS・JSをビルド(public/buildはGitに含まれないため)
             docker run --rm -v $(pwd)/src:/app -w /app node:22 sh -c "npm ci && npm run build"
- 
+
             # キャッシュを作り直す
             docker compose exec -T app php artisan config:cache
             docker compose exec -T app php artisan route:cache

@@ -1,32 +1,38 @@
 # 本番（AWS EC2 + RDS）用の構成
 # DBはRDSを使うため、db / phpmyadmin は含めない
-# 使い方: docker compose -f docker-compose.prod.yml up -d --build
+#
+# イメージは GitHub Actions が Dockerfile.prod からビルドして
+# Docker Hub に push したものを使う(EC2上ではビルドしない)
+#
+# 使い方:
+#   最新版で起動      : docker compose -f docker-compose.prod.yml up -d
+#   バージョン指定    : IMAGE_TAG=<コミットSHA> docker compose -f docker-compose.prod.yml up -d
+#   (ロールバックも同じコマンドで、戻したいSHAを指定するだけ)
+#
 services:
   # Nginx（Webサーバー）
+  # public(CSS・JS)と default.conf はイメージに入っているのでマウント不要
   nginx:
-    image: nginx:latest
+    image: senatanaka/laravel-web:${IMAGE_TAG:-latest}
     ports:
-      - "80:80"
-    volumes:
-      - ./src:/var/www/html
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+      # EC2ではホスト側のNginx(HTTPS)からここへ転送するので、外部には直接公開しない
+      - "127.0.0.1:${NGINX_HOST_PORT:-8000}:80"   # 本番は8000、ステージングは.envで8001を指定
     depends_on:
-      - app
+      app:
+        condition: service_healthy   # appのヘルスチェックが healthy になってから起動
     networks:
       - app-network
 
   # PHP-FPM（アプリケーション）
-  # DBの接続先は src/.env の DB_HOST（RDSのエンドポイント）で指定する
+  # コードはイメージに入っているので、ソースのマウントはしない
+  # DBの接続先などの設定は src/.env を環境変数として渡す
   app:
-    build:
-      context: .
-      dockerfile: docker/php/Dockerfile
-    volumes:
-      - ./src:/var/www/html
+    image: senatanaka/laravel-app:${IMAGE_TAG:-latest}
+    env_file:
+      - ./src/.env
     networks:
       - app-network
 
 networks:
   app-network:
     driver: bridge
-    

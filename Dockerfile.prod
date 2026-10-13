@@ -4,84 +4,97 @@
 # ビルド: docker build -f Dockerfile.prod -t laravel-app:prod .
 # ※ laravel-docker-app のルート(srcフォルダがある場所)で実行
 # =========================================================
- 
+
 # ---------------------------------------------------------
 # Stage 1: base(全ステージ共通の土台)
 #   Alpine版のPHP-FPMに、必要な拡張機能だけ入れる
 # ---------------------------------------------------------
 FROM php:8.3-fpm-alpine AS base
- 
+
 # fcgi: ヘルスチェックでPHP-FPMに直接問い合わせるための小さなツール
 # $PHPIZE_DEPS: 拡張機能のコンパイルにだけ使い、終わったら削除する
 RUN apk add --no-cache fcgi \
  && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
  && docker-php-ext-install pdo_mysql bcmath opcache \
  && apk del .build-deps
- 
+
 # 本番向けの php.ini を有効化
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
- 
+
 # PHP-FPMの「生存確認用URL」(/ping → pong を返す)を有効化
 RUN printf "ping.path = /ping\nping.response = pong\n" \
     >> /usr/local/etc/php-fpm.d/zz-docker.conf
- 
+
 WORKDIR /var/www/html
- 
- 
+
+
 # ---------------------------------------------------------
 # Stage 2: vendor(Composerで本番用ライブラリを入れる)
 #   Composer本体はこのステージにしか入らない
 # ---------------------------------------------------------
 FROM base AS vendor
- 
+
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
- 
+
 # 先に composer.json / lock だけコピー → ライブラリが変わらなければ
 # 次回ビルドでこの層がキャッシュされて速くなる
 COPY src/composer.json src/composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader \
     --prefer-dist --no-interaction
- 
+
 # アプリ本体をコピーしてオートローダーを最適化
 COPY src/ ./
 RUN composer dump-autoload --optimize --no-dev --no-scripts
- 
- 
+
+
 # ---------------------------------------------------------
 # Stage 3: assets(Viteでフロント資産をビルド)
 #   Node.js はこのステージにしか入らない
 # ---------------------------------------------------------
 FROM node:20-alpine AS assets
- 
+
 WORKDIR /app
 COPY src/package.json src/package-lock.json ./
 RUN npm ci
 COPY src/ ./
 RUN npm run build
- 
- 
+
+
 # ---------------------------------------------------------
-# Stage 4: production(最終イメージ)
+# Stage 4: web(Nginx用イメージ)
+#   本番ではソースをマウントしないので、Nginxが配信する
+#   public(CSS・JS・画像など)をイメージに焼き込む
+#   ビルド: docker build -f Dockerfile.prod --target web -t laravel-web:prod .
+# ---------------------------------------------------------
+FROM nginx:alpine AS web
+
+COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY --from=vendor /var/www/html/public /var/www/html/public
+COPY --from=assets /app/public/build /var/www/html/public/build
+
+
+# ---------------------------------------------------------
+# Stage 5: production(PHP-FPM用の最終イメージ)
+#   ※ 一番下のステージなので、--target を付けないとこれがビルドされる
 #   必要な成果物だけを受け取る。Composer・Node・ビルドツールは入らない
 # ---------------------------------------------------------
 FROM base AS production
- 
+
 COPY --from=vendor /var/www/html /var/www/html
 COPY --from=assets /app/public/build /var/www/html/public/build
- 
+
 # 書き込みが必要なフォルダだけ www-data の持ち物にする
 # (コード本体はroot所有のまま=非rootユーザーは書き換えられない)
 RUN chown -R www-data:www-data storage bootstrap/cache
- 
+
 # 非rootユーザーに切り替え
 USER www-data
- 
+
 EXPOSE 9000
- 
+
 # 30秒ごとにPHP-FPMへ /ping を送り、pong が返れば healthy
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD SCRIPT_NAME=/ping SCRIPT_FILENAME=/ping REQUEST_METHOD=GET \
       cgi-fcgi -bind -connect 127.0.0.1:9000 | grep -q pong || exit 1
- 
+
 CMD ["php-fpm"]
- 

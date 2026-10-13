@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Repositories\PostRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Cache;
 
 class PostService
 {
@@ -17,10 +18,17 @@ class PostService
 
     /**
      * 投稿一覧を取得（ページネーション付き）
+     * ページごとに10分間キャッシュする
      */
     public function getPosts(): LengthAwarePaginator
     {
-        return $this->postRepository->paginateLatest();
+        $page    = request()->integer('page', 1);
+        $version = Cache::get('posts.cache_version', 1);
+        $key     = "posts.index.v{$version}.page{$page}";
+
+        return Cache::remember($key, now()->addMinutes(10), function () {
+            return $this->postRepository->paginateLatest();
+        });
     }
 
     /**
@@ -32,7 +40,7 @@ class PostService
     }
 
     /**
-     * API用:投稿一覧をページネーション付きで取得(投稿者情報つき)
+     * API用:投稿一覧をページネーション付きで取得（投稿者・いいね情報つき）
      */
     public function getPostsForApi(): LengthAwarePaginator
     {
@@ -44,7 +52,10 @@ class PostService
      */
     public function createPost(User $user, array $data): Post
     {
-        return $this->postRepository->createForUser($user, $data);
+        $post = $this->postRepository->createForUser($user, $data);
+        $this->clearPostsCache();
+
+        return $post;
     }
 
     /**
@@ -52,7 +63,10 @@ class PostService
      */
     public function updatePost(Post $post, array $data): Post
     {
-        return $this->postRepository->update($post, $data);
+        $post = $this->postRepository->update($post, $data);
+        $this->clearPostsCache();
+
+        return $post;
     }
 
     /**
@@ -61,6 +75,7 @@ class PostService
     public function deletePost(Post $post): void
     {
         $this->postRepository->delete($post);
+        $this->clearPostsCache();
     }
 
     /**
@@ -69,5 +84,15 @@ class PostService
     public function toggleLike(Post $post, User $user): void
     {
         $this->postRepository->toggleLike($post, $user);
+        $this->clearPostsCache();
+    }
+
+    /**
+     * 投稿一覧のキャッシュを無効化する
+     * バージョン番号を上げることで、全ページの古いキャッシュを一度に使わなくする
+     */
+    private function clearPostsCache(): void
+    {
+        Cache::forever('posts.cache_version', Cache::get('posts.cache_version', 1) + 1);
     }
 }

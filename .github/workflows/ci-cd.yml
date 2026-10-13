@@ -55,11 +55,12 @@ jobs:
   # 2. Test (PHPUnit) + 練習課題1: カバレッジ + PRへ結果をコメント
   # ---------------------------------------------
   test:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write   # PRにコメントするために必要
-    steps:
+      needs: [lint, phpstan]   # lintとphpstanが成功してからテストを始める
+      runs-on: ubuntu-latest
+      permissions:
+        contents: read
+        pull-requests: write   # PRにコメントするために必要
+      steps:
       - uses: actions/checkout@v4
  
       - uses: shivammathur/setup-php@v2

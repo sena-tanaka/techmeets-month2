@@ -203,6 +203,8 @@ jobs:
 
   # ---------------------------------------------
   # 4. mainへのpush時に EC2 へ自動デプロイ
+  #    EC2ではビルドせず、docker ジョブが Docker Hub に push した
+  #    イメージ(このコミットのSHAタグ)を pull して起動する
   # ---------------------------------------------
   deploy:
     needs: [lint, phpstan, test, docker]   # イメージの push が終わってからデプロイ
@@ -220,22 +222,30 @@ jobs:
             set -e
             cd ${{ secrets.APP_DIR }}
 
-            # 最新のmainに切り替える
+            # docker-compose.prod.yml を最新にするため main を取得
+            # (アプリのコード自体はイメージに入っているので、ここでは使わない)
             git fetch origin
             git checkout main
             git pull origin main
 
-            # コンテナを再ビルドして起動
-            docker compose up -d --build
+            # 今回デプロイするバージョン = このコミットのSHA
+            # (docker ジョブが同じSHAのタグで push 済み)
+            export IMAGE_TAG=${{ github.sha }}
+            COMPOSE="docker compose -f docker-compose.prod.yml"
 
-            # PHPの依存関係とDBを更新
-            docker compose exec -T app composer install --no-dev --optimize-autoloader
-            docker compose exec -T app php artisan migrate --force
+            # ビルド済みイメージを Docker Hub から取得して起動
+            # composer install / npm run build はイメージの中で済んでいるので不要
+            $COMPOSE pull
+            $COMPOSE up -d
 
-            # CSS・JSをビルド(public/buildはGitに含まれないため)
-            docker run --rm -v $(pwd)/src:/app -w /app node:22 sh -c "npm ci && npm run build"
+            # DBの更新とキャッシュ作成(コンテナの中で実行)
+            $COMPOSE exec -T app php artisan migrate --force
+            $COMPOSE exec -T app php artisan config:cache
+            $COMPOSE exec -T app php artisan route:cache
+            $COMPOSE exec -T app php artisan view:cache
 
-            # キャッシュを作り直す
-            docker compose exec -T app php artisan config:cache
-            docker compose exec -T app php artisan route:cache
-            docker compose exec -T app php artisan view:cache
+            # どのバージョンが動いているか記録(ロールバック時の目印)
+            echo "$IMAGE_TAG" > .deployed_tag
+
+            # 使わなくなった古いイメージを削除してディスクを節約
+            docker image prune -f

@@ -25,8 +25,8 @@ class PostResource extends JsonResource
             // 投稿者名を含める(読み込んでいなければこの項目は出力されない)
             'author'      => $this->whenLoaded('user', fn () => $this->user->name),
 
-            // いいね数(記事1件ごとにlikesを取りに行く素直な書き方 → N+1になる)
-            'likes_count' => $this->likes->count(),
+            // whenCounted('likes'):withCount('likes') でSQL側が数えた件数があるときだけ出力する
+            'likes_count' => $this->whenCounted('likes'),
 
             // 日付は画面で扱いやすい文字列に整形して返す
             'created_at'  => $this->created_at->format('Y-m-d H:i'),

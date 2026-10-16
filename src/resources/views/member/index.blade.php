@@ -22,7 +22,7 @@
                         {{ $post->user->name }}
                          @if ($post->category) ・ {{ $post->category }} @endif
                        ・ {{ $post->created_at->format('Y/m/d H:i') }}
-                       ・ ♥ {{ $post->likes->count() }}
+                       ・ ♥ {{ $post->likes_count }}
                     </p>
                 </div>
             @empty

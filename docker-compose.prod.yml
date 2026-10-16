@@ -1,5 +1,5 @@
-# 本番（AWS EC2 + RDS）用の構成
-# DBはRDSを使うため、db / phpmyadmin は含めない
+# 本番（AWS EC2）用の構成
+# DBは EC2 内の MySQL コンテナ(db)を使う
 #
 # イメージは GitHub Actions が Dockerfile.prod からビルドして
 # Docker Hub に push したものを使う(EC2上ではビルドしない)
@@ -9,6 +9,8 @@
 #   バージョン指定    : IMAGE_TAG=<コミットSHA> docker compose -f docker-compose.prod.yml up -d
 #   (ロールバックも同じコマンドで、戻したいSHAを指定するだけ)
 #
+# ※ docker-compose.yml と同じフォルダで動かすので、
+#    db のデータ(db-data ボリューム)はそのまま引き継がれる
 services:
   # Nginx（Webサーバー）
   # public(CSS・JS)と default.conf はイメージに入っているのでマウント不要
@@ -25,13 +27,38 @@ services:
 
   # PHP-FPM（アプリケーション）
   # コードはイメージに入っているので、ソースのマウントはしない
-  # DBの接続先などの設定は src/.env を環境変数として渡す
+  # 設定は src/.env を環境変数として渡す
   app:
     image: senatanaka/laravel-app:${IMAGE_TAG:-latest}
     env_file:
       - ./src/.env
+    # DB接続先は docker-compose.yml(これまでの本番)と同じ値にそろえる
+    environment:
+      - DB_HOST=db
+      - DB_DATABASE=laravel
+      - DB_USERNAME=root
+      - DB_PASSWORD=secret
+    depends_on:
+      - db
     networks:
       - app-network
+
+  # MySQL（データベース）
+  # 本番では外部からの直接接続は不要なので ports は公開しない
+  # (app からはサービス名 db で接続できる)
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: laravel
+      MYSQL_ROOT_PASSWORD: secret
+    volumes:
+      - db-data:/var/lib/mysql   # これまでと同じボリューム → 既存のデータをそのまま使う
+    networks:
+      - app-network
+
+# 永続化ボリューム(docker-compose.yml と同じ名前にして、既存データを引き継ぐ)
+volumes:
+  db-data:
 
 networks:
   app-network:

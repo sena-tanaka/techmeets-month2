@@ -27,3 +27,4 @@ Thumbs.db
 .php-cs-fixer.cache
 coverage-html/
 coverage.txt
+/storage/debugbar

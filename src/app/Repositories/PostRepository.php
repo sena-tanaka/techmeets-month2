@@ -11,11 +11,11 @@ class PostRepository
 {
     /**
      * 投稿一覧を新しい順で取得（ページネーション付き）
-     * user(投稿者)と likes(いいね)を eager loading して N+1 を防ぐ
+     * 投稿者(user)はeager loading、いいね数はwithCountでSQL側で数える
      */
     public function paginateLatest(int $perPage = 10): LengthAwarePaginator
     {
-        return Post::with(['user', 'likes'])->latest()->paginate($perPage);
+        return Post::with('user')->withCount('likes')->latest()->paginate($perPage);
     }
 
     /**
@@ -27,11 +27,12 @@ class PostRepository
     }
 
     /**
-     * API用:投稿一覧を投稿者(user)・いいね(likes)と一緒に、新しい順でページネーション付きで取得
+     * API用:投稿一覧を新しい順でページネーション付きで取得
+     * 投稿者(user)はeager loading、いいね数はwithCountでSQL側で数える
      */
     public function paginateForApi(int $perPage = 20): LengthAwarePaginator
     {
-        return Post::with(['user', 'likes'])->latest()->paginate($perPage);
+        return Post::with('user')->withCount('likes')->latest()->paginate($perPage);
     }
 
     /**
